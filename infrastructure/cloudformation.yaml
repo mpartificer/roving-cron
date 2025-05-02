@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template for Supabase Event Scanner Lambda and EventBridge"
+
+Parameters:
+  SupabaseUrl:
+    Type: String
+    Description: Supabase URL
+    NoEcho: false
+
+  SupabaseServiceRoleKey:
+    Type: String
+    Description: Supabase Service Role Key
+    NoEcho: true
+
+  LambdaMemory:
+    Type: Number
+    Default: 128
+    Description: Memory allocation for Lambda function (MB)
+
+  LambdaTimeout:
+    Type: Number
+    Default: 30
+    Description: Lambda function timeout (seconds)
+
+  ScheduleExpression:
+    Type: String
+    Default: "cron(0 6 * * ? *)"
+    Description: "Schedule expression for EventBridge rule (default: daily at 6 AM UTC)"
+
+Resources:
+  # Lambda execution role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+
+  # Lambda function
+  SupabaseEventScanner:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: SupabaseEventScanner
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: "{{resolve:ssm:DeploymentBucket:1}}"
+        S3Key: "lambda/supabase-event-scanner.zip"
+      Runtime: nodejs18.x
+      Timeout: !Ref LambdaTimeout
+      MemorySize: !Ref LambdaMemory
+      Environment:
+        Variables:
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SERVICE_ROLE_KEY: !Ref SupabaseServiceRoleKey
+      Tags:
+        - Key: Service
+          Value: SupabaseEventScanner
+        - Key: Environment
+          Value: !Ref AWS::StackName
+
+  # CloudWatch Log Group
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${SupabaseEventScanner}"
+      RetentionInDays: 30
+
+  # EventBridge scheduled rule
+  DailyEventScanRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: DailySupabaseEventScan
+      Description: "Triggers Lambda function to scan Supabase events daily"
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SupabaseEventScanner.Arn
+          Id: "SupabaseEventScanner"
+
+  # Permission to allow EventBridge to invoke Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref SupabaseEventScanner
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt DailyEventScanRule.Arn
+
+Outputs:
+  LambdaFunctionName:
+    Description: Name of the Lambda function
+    Value: !Ref SupabaseEventScanner
+
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt SupabaseEventScanner.Arn
+
+  EventBridgeRuleName:
+    Description: Name of the EventBridge rule
+    Value: !Ref DailyEventScanRule
+
+  EventBridgeRuleArn:
+    Description: ARN of the EventBridge rule
+    Value: !GetAtt DailyEventScanRule.Arn

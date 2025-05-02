@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Supabase Event Scanner Lambda Function
+
+Parameters:
+  SupabaseUrl:
+    Type: String
+    Default: "https://placeholder-url.supabase.co"
+    Description: Supabase URL
+
+  SupabaseServiceRoleKey:
+    Type: String
+    Default: "placeholder-key"
+    Description: Supabase Service Role Key
+    NoEcho: true
+
+Resources:
+  SupabaseEventScannerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../
+      Handler: src/index.handler
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          SUPABASE_URL: !Ref SupabaseUrl
+          SUPABASE_SERVICE_ROLE_KEY: !Ref SupabaseServiceRoleKey
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: "cron(0 6 * * ? *)"
+            Name: DailySupabaseEventScan
+            Description: Scan Supabase events daily at 6 AM UTC
+            Enabled: true
+
+Outputs:
+  SupabaseEventScannerFunction:
+    Description: "Supabase Event Scanner Lambda Function ARN"
+    Value: !GetAtt SupabaseEventScannerFunction.Arn
+  SupabaseEventScannerFunctionRole:
+    Description: "IAM Role created for the Lambda function"
+    Value: !GetAtt SupabaseEventScannerFunctionRole.Arn
