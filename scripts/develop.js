@@ -5,7 +5,6 @@
  * - Simulated daily schedule
  * - Interactive development mode
  */
-require("dotenv").config();
 const { handler } = require("../src/index");
 const readline = require("readline");
 

@@ -1,6 +1,3 @@
-// Load environment variables from .env file
-require("dotenv").config();
-
 // Import the Lambda handler
 const { handler } = require("../src/index");
 

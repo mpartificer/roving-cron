@@ -1,5 +1,4 @@
 const notificationapi = require("notificationapi-node-server-sdk").default;
-require("dotenv").config();
 
 function sendTippingNotification(customerEmail, bookingId) {
   notificationapi.init(

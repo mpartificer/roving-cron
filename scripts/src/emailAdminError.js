@@ -1,6 +1,5 @@
 // emailAdminError.js
 const notificationapi = require("notificationapi-node-server-sdk").default;
-require("dotenv").config();
 
 function emailAdminError(adminEmail, paymentType, bookingId) {
   // Add logging to debug environment variables
